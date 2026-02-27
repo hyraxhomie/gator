@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"html"
+	"io"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyraxhomie/gator/internal/config"
 	"github.com/hyraxhomie/gator/internal/database"
+	"github.com/hyraxhomie/gator/internal/models"
 )
 
 type State struct{
@@ -90,4 +95,48 @@ func handlerUsers(s *State, _ Command) error {
 		fmt.Println()
 	}
 	return nil
+}
+
+func handlerAgg(s *State, _ Command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	feed, err := fetchFeed(context.Background(), url)
+	if err != nil{
+		return err
+	}
+	fmt.Println(feed)
+	return nil
+}
+
+func fetchFeed(ctx context.Context, feedURL string) (*models.RSSFeed, error) {
+	var feed *models.RSSFeed
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, feedURL, nil)
+	if err != nil{
+		return nil, fmt.Errorf("Error creating request for '%s'.\n%w", feedURL, err)
+	}
+	req.Header.Set("User-Agent", "gator")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil{
+		return nil, fmt.Errorf("Error getting feed for '%s'.\n%w", feedURL, err)
+	}
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil{
+		return nil, fmt.Errorf("Error reading body.\n%w", err)
+	}
+
+	err = xml.Unmarshal(bytes, &feed)
+	if err != nil{
+		return nil, fmt.Errorf("Error unmarshalling body.\n%w", err)
+	}
+
+	feed.Channel.Title = html.UnescapeString(feed.Channel.Title)
+	feed.Channel.Description = html.UnescapeString(feed.Channel.Description)
+	for i := range feed.Channel.Item {
+		feed.Channel.Item[i].Title = html.UnescapeString(feed.Channel.Item[i].Title)
+		feed.Channel.Item[i].Description = html.UnescapeString(feed.Channel.Item[i].Description)
+	}
+
+	return feed, nil
 }
