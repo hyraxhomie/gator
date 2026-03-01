@@ -10,7 +10,7 @@ RETURNING *;
 
 -- name: GetUser :one
 SELECT * FROM users
-WHERE lower(name) = lower($1)
+WHERE lower(name) = lower(@name)
 ORDER BY id;
 
 -- name: GetUsers :many
@@ -22,4 +22,4 @@ DELETE FROM users;
 
 -- name: DeleteUser :exec
 DELETE FROM users
-WHERE id = $1;
+WHERE id = @id;

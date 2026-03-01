@@ -107,6 +107,40 @@ func handlerAgg(s *State, _ Command) error {
 	return nil
 }
 
+func handlerAddFeed(s *State, cmd Command) error {
+	if len(cmd.args) < 2 {
+		return fmt.Errorf("Not Enough Args. A name and URL are required")
+	}
+	// feed, err := fetchFeed(context.Background(), cmd.args[1])
+	// if err != nil{
+	// 	return err
+	// }
+	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
+	if err != nil{
+		return err
+	}
+	feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID: uuid.New(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Name: cmd.args[0], Url: cmd.args[1], UserID: user.ID })
+	if err != nil{
+		return err
+	}
+	fmt.Println(feed)
+	return nil
+}
+
+func handlerFeeds(s *State, cmd Command) error {
+
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil{
+		return err
+	}
+
+	for _, v := range feeds {
+		fmt.Printf("- %s (%s) - %s", v.Name, v.Url, v.UserName)
+		fmt.Println()
+	}
+	return nil
+}
+
 func fetchFeed(ctx context.Context, feedURL string) (*models.RSSFeed, error) {
 	var feed *models.RSSFeed
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, feedURL, nil)

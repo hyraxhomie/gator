@@ -72,8 +72,8 @@ WHERE lower(name) = lower($1)
 ORDER BY id
 `
 
-func (q *Queries) GetUser(ctx context.Context, lower string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, lower)
+func (q *Queries) GetUser(ctx context.Context, name string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUser, name)
 	var i User
 	err := row.Scan(
 		&i.ID,
