@@ -19,3 +19,7 @@ ORDER BY id;
 SELECT feeds.*, users.name as user_name FROM feeds
 JOIN users ON users.id = feeds.user_id
 ORDER BY feeds.user_id;
+
+-- name: GetFeedByUrl :one
+SELECT * FROM feeds
+where url = @url;
