@@ -39,6 +39,16 @@ type Command struct{
 	args []string
 }
 
+func middlewareLoggedIn(handler func(s *State, cmd Command, user database.User) error) func(*State, Command) error{
+	return func(s *State, cmd Command) error {
+		user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
+		if err != nil{
+			return err
+		}
+		return handler(s, cmd, user)
+	}
+}
+
 func handlerLogin(s *State, cmd Command) error {
 	if len(cmd.args) < 1 {
 		return fmt.Errorf("Not Enough Args. A username is required.")
@@ -107,13 +117,9 @@ func handlerAgg(s *State, _ Command) error {
 	return nil
 }
 
-func handlerAddFeed(s *State, cmd Command) error {
+func handlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.args) < 2 {
 		return fmt.Errorf("Not Enough Args. A name and URL are required")
-	}
-	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
-	if err != nil{
-		return err
 	}
 	feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID: uuid.New(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Name: cmd.args[0], Url: cmd.args[1], UserID: user.ID })
 	if err != nil{
@@ -142,7 +148,7 @@ func handlerFeeds(s *State, _ Command) error {
 	return nil
 }
 
-func handlerFollow(s *State, cmd Command) error {
+func handlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.args) < 1 {
 		return fmt.Errorf("Not Enough Args. A URL is required.")
 	}
@@ -150,17 +156,26 @@ func handlerFollow(s *State, cmd Command) error {
 	if err != nil{
 		return err
 	}
-	user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
-	if err != nil{
-		return err
-	}
+
 	feed_follow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{ID: uuid.New(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), UserID: user.ID, FeedID: feed.ID})
 	fmt.Printf("%s followed %s\n",feed_follow.UserName, feed_follow.FeedName)
 	return nil
 }
 
-func handlerFollowing(s *State, _ Command) error {
-	following, err := s.db.GetFeedFollowsForUser(context.Background(), s.config.CurrentUserId)
+func handlerUnfollow(s *State, cmd Command, user database.User) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("Not Enough Args. A URL is required.")
+	}
+	feed, err := s.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{Url: cmd.args[0], UserID: user.ID})
+	if err != nil{
+		return err
+	}
+	fmt.Printf("%s unfollowed %s", user.Name, feed.Name)
+	return nil
+}
+
+func handlerFollowing(s *State, _ Command, user database.User) error {
+	following, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil{
 		return err
 	}
