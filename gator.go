@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
@@ -107,14 +108,18 @@ func handlerUsers(s *State, _ Command) error {
 	return nil
 }
 
-func handlerAgg(s *State, _ Command) error {
-	url := "https://www.wagslane.dev/index.xml"
-	feed, err := fetchFeed(context.Background(), url)
+func handlerAgg(s *State, c Command) error {
+	if len(c.args) < 1{
+		return fmt.Errorf("Not enough args. An interval is required (ex. 1s, 1m, 1h)")
+	}
+	duration, err := time.ParseDuration(c.args[0])
 	if err != nil{
 		return err
 	}
-	fmt.Println(feed)
-	return nil
+	ticker := time.NewTicker(duration)
+	for ;; <- ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *State, cmd Command, user database.User) error {
@@ -220,4 +225,26 @@ func fetchFeed(ctx context.Context, feedURL string) (*models.RSSFeed, error) {
 	}
 
 	return feed, nil
+}
+
+func scrapeFeeds(s *State) error{
+	next, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil{
+		return err
+	}
+	next, err = s.db.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{UpdatedAt: sql.NullTime{Time: time.Now().UTC(), Valid: true}, ID: next.ID})
+	if err != nil{
+		return err
+	}
+	feed, err := fetchFeed(context.Background(), next.Url)
+	if err != nil{
+		return err
+	}
+	fmt.Printf("Current Feed: %s", next.Name)
+	fmt.Println()
+	for _, v := range feed.Channel.Item {
+		fmt.Printf("- %s", v.Title)
+		fmt.Println()
+	}
+	return nil
 }

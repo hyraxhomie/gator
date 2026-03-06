@@ -23,3 +23,14 @@ ORDER BY feeds.user_id;
 -- name: GetFeedByUrl :one
 SELECT * FROM feeds
 where url = @url;
+
+-- name: MarkFeedFetched :one
+update feeds
+set last_fetched_at = @updated_at,
+updated_at = @updated_at
+where id = @id
+RETURNING *;
+
+-- name: GetNextFeedToFetch :one
+select * from feeds
+order by last_fetched_at asc nulls first;

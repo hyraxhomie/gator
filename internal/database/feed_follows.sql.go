@@ -78,7 +78,7 @@ with deleted as (
     and feed_follows.user_id = $2
     RETURNING feed_follows.feed_id
 )
-select feeds.id, feeds.created_at, feeds.updated_at, feeds.name, feeds.url, feeds.user_id
+select feeds.id, feeds.created_at, feeds.updated_at, feeds.name, feeds.url, feeds.user_id, feeds.last_fetched_at
 from deleted 
 join feeds on feeds.id = deleted.feed_id
 `
@@ -98,6 +98,7 @@ func (q *Queries) DeleteFeedFollow(ctx context.Context, arg DeleteFeedFollowPara
 		&i.Name,
 		&i.Url,
 		&i.UserID,
+		&i.LastFetchedAt,
 	)
 	return i, err
 }
