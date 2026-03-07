@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -193,6 +194,28 @@ func handlerFollowing(s *State, _ Command, user database.User) error {
 	return nil
 }
 
+func handlerBrowse(s *State, c Command, user database.User) error {
+	limit := 2
+	if len(c.args) > 0 {
+		var err error
+		limit, err = strconv.Atoi(c.args[0])
+		if err != nil {
+			return fmt.Errorf("invalid limit: %w", err)
+		}
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{UserID: user.ID, NumPosts: int32(limit)})
+	if err != nil{
+		return err
+	}
+	fmt.Printf("Recent feeds for %s", user.Name)
+	fmt.Println()
+	for _, v := range posts {
+		fmt.Printf("- %s: %s",v.Title.String, v.Url.String)
+		fmt.Println()
+	}
+	return nil
+}
+
 func fetchFeed(ctx context.Context, feedURL string) (*models.RSSFeed, error) {
 	var feed *models.RSSFeed
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, feedURL, nil)
@@ -236,15 +259,28 @@ func scrapeFeeds(s *State) error{
 	if err != nil{
 		return err
 	}
-	feed, err := fetchFeed(context.Background(), next.Url)
+	rssFeed, err := fetchFeed(context.Background(), next.Url)
 	if err != nil{
 		return err
 	}
-	fmt.Printf("Current Feed: %s", next.Name)
-	fmt.Println()
-	for _, v := range feed.Channel.Item {
-		fmt.Printf("- %s", v.Title)
-		fmt.Println()
+	for _, v := range rssFeed.Channel.Item {
+		title := sql.NullString{String: v.Title, Valid: v.Title != ""}
+		url := sql.NullString{String: v.Link, Valid: v.Link != ""}
+		description := sql.NullString{String: v.Description, Valid: v.Description != ""}
+		pubDate, err := time.Parse(time.RFC1123Z, v.PubDate)
+		if err != nil{
+			pubDate, err = time.Parse(time.RFC1123, v.PubDate)
+			if err != nil{
+				pubDate, err = time.Parse(time.RFC3339, v.PubDate)
+				if err != nil{
+					pubDate = time.Now().UTC()
+				}
+			}
+		}
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{ID: uuid.New(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), Title: title, Url: url, Description: description, PublishedAt: pubDate, FeedID: next.ID})
+		if err != nil{
+			fmt.Println(fmt.Errorf("Unable to add post %s from %s: %w", v.Title, v.Link, err))
+		}
 	}
 	return nil
 }
