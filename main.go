@@ -8,6 +8,7 @@ import (
 	"github.com/hyraxhomie/gator/internal/config"
 	"github.com/hyraxhomie/gator/internal/database"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose"
 )
 
 func main(){
@@ -18,6 +19,11 @@ func main(){
 	handleErr(err)
 
 	state.db = database.New(db)
+
+	// Run all migrations in the "./migrations" directory
+    if err := goose.Run("up", db, "./sql/schema"); err != nil {
+       	handleErr(err, "goose run error.")
+    }
 
 	// commands
 	commands := Commands{commands: make(map[string]func(*State, Command) error)}
