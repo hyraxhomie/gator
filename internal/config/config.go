@@ -14,12 +14,10 @@ const configFileName = ".gatorconfig.json"
 type Config struct{
 	DbUrl string `json:"db_url"`
 	CurrentUserName string `json:"current_user_name"`
-	CurrentUserId uuid.UUID `json:"current_user_id"`
 }
 
 func (c *Config) SetUser(name string, id uuid.UUID) error{
 	c.CurrentUserName = name
-	c.CurrentUserId = id
 	err := write(*c)
 	return err
 }
